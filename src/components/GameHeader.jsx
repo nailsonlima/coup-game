@@ -11,6 +11,8 @@ const GameHeader = ({ onOpenRules }) => {
         setShowExitConfirm(false);
     };
 
+    const isInRoom = !!roomCode;
+
     return (
         <>
             <header className="fixed top-0 left-0 w-full z-[10000] flex justify-between items-center p-4 bg-gray-900/90 backdrop-blur-sm border-b border-gray-800 shadow-lg">
@@ -24,20 +26,27 @@ const GameHeader = ({ onOpenRules }) => {
                     <span className="hidden sm:inline font-bold text-sm">REGRAS</span>
                 </button>
 
-                {/* Center: Room Code */}
-                <div className="font-mono font-bold text-gray-500 tracking-widest hidden md:block select-all">
-                    {roomCode}
-                </div>
+                {/* Center: Room Code (Only in Room) */}
+                {isInRoom && (
+                    <div className="font-mono font-bold text-gray-500 tracking-widest hidden md:block select-all">
+                        {roomCode}
+                    </div>
+                )}
 
-                {/* Right: Exit */}
-                <button 
-                    onClick={() => setShowExitConfirm(true)} 
-                    className="flex items-center gap-2 text-gray-400 hover:text-red-500 transition-colors"
-                    aria-label="Sair"
-                >
-                    <span className="hidden sm:inline font-bold text-sm">SAIR</span>
-                    <LogOut size={28} />
-                </button>
+                {/* Right: Exit (Only in Room) */}
+                {isInRoom ? (
+                    <button 
+                        onClick={() => setShowExitConfirm(true)} 
+                        className="flex items-center gap-2 text-gray-400 hover:text-red-500 transition-colors"
+                        aria-label="Sair"
+                    >
+                        <span className="hidden sm:inline font-bold text-sm">SAIR</span>
+                        <LogOut size={28} />
+                    </button>
+                ) : (
+                    /* Placeholder to balance flex layout or empty */
+                    <div className="w-[70px]"></div>
+                )}
             </header>
 
             {/* EXIT CONFIRMATION MODAL */}

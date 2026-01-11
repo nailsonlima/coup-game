@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
-import { BookOpen } from 'lucide-react';
-import RuleBook from './RuleBook';
 import OpponentList from './OpponentList';
 import GameLog from './GameLog';
 import PlayerDashboard from './PlayerDashboard';
@@ -10,11 +8,10 @@ import LobbyView from './LobbyView';
 import VictoryView from './VictoryView';
 import JudgmentView from './JudgmentView';
 
-import GameHeader from './GameHeader';
+
 
 const GameRoom = () => {
     const { roomCode, leaveRoom, gameState, user } = useGame();
-    const [showRules, setShowRules] = useState(false);
     
     // SAFE HOOK USAGE: Always called
     const isLobby = gameState.status === 'LOBBY';
@@ -45,12 +42,9 @@ const GameRoom = () => {
     }
 
     return (
-        <div className="h-screen w-screen bg-gray-900 overflow-hidden flex flex-col">
-            <GameHeader onOpenRules={() => setShowRules(true)} />
-            <RuleBook isOpen={showRules} onClose={() => setShowRules(false)} />
-            
-            {/* Main Content Area - Padded top for header */}
-            <main className="flex-1 pt-20 relative h-full w-full overflow-hidden">
+        <div className="h-full w-full overflow-hidden flex flex-col">
+            {/* Main Content Area - Padding handled by App Wrapper */}
+            <main className="flex-1 relative h-full w-full overflow-hidden">
                 {content}
             </main>
         </div>

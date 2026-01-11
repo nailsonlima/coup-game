@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { database } from '../config/firebase';
+import { database, auth } from '../config/firebase';
 import { ref, set, onValue, update, get, remove, onDisconnect } from 'firebase/database';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { createDeck, shuffleDeck } from '../utils/gameUtils';
 
 const GameContext = createContext();
@@ -12,6 +13,33 @@ export const GameProvider = ({ children }) => {
   const [roomCode, setRoomCode] = useState(localStorage.getItem('coup_room') || null);
   const [gameState, setGameState] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+
+  // --- 0. ANONYMOUS AUTH ---
+  useEffect(() => {
+      signInAnonymously(auth).catch((error) => {
+          console.error("Auth Failed:", error);
+      });
+
+      const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+          if (currentUser) {
+              console.log("Authenticated as:", currentUser.uid);
+              setAuthReady(true);
+              
+              // If we have a stored user, update their ID to match the real Auth ID if different?
+              // Actually, we should just ensure any NEW login uses this ID.
+              // If there is an existing local user, we might want to preserve the NAME but update the ID?
+              // For simplicity, we won't forcibly overwrite the existing local user object YET, 
+              // but the 'login' function will now use auth.currentUser.uid.
+              
+              // Optional: Update existing user ID if it was "fake" before?
+              // Let's rely on the user re-logging in or just 'login' flow.
+          } else {
+              setAuthReady(false);
+          }
+      });
+      return () => unsubscribeAuth();
+  }, []);
 
   // --- 1. FIREBASE SYNC ---
 
@@ -21,43 +49,104 @@ export const GameProvider = ({ children }) => {
       return;
     }
     const roomRef = ref(database, `rooms/${roomCode}`);
+    
+    // --- PERSISTENCE: REMOVED AUTO-DELETE ON DISCONNECT ---
+    // We want users to be able to refresh. 
+    // Cleanup is now handled by 'cleanupInactiveRooms' and explicit 'leaveRoom'.
+    
     const unsubscribe = onValue(roomRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setGameState(data);
         
-        // --- 3. AUTO ROOM CLEANUP (Garbage Collection) ---
-        // If players node is missing or empty, delete the room
-        if (data.players && Object.keys(data.players).length === 0) {
-             // Only if I'm somehow still connected to an empty room?
-             // Actually, if I read this, I am a client.
-             // But if players is empty, I am not in it? 
-             // This runs if I am observing an empty room.
-             // More critically: The last player LEAVING usually triggers this manually.
-             // But let's add the safety:
-             remove(roomRef).catch(err => console.log("Cleanup catch:", err));
+        // --- 1.1 RECONNECTION VALIDATION ---
+        // If I have a roomCode and User Local ID, I expect to be in the players list.
+        // If the room exists but I am NOT in it (e.g. Host deleted me or Room was reset), 
+        // I should be kicked to Lobby.
+        
+        // Only run this check if "user" is defined (I think I am logged in)
+        if (user && data.players && !data.players[user.id]) {
+            console.warn("Player not found in room. Redirecting to Lobby.");
+            setGameState(null);
+            setRoomCode(null);
+            localStorage.removeItem('coup_room');
+            return;
         }
 
+        setGameState(data);
+        
+
+
       } else {
+        // Room deleted
         setRoomCode(null);
         localStorage.removeItem('coup_room');
       }
     });
     return () => unsubscribe();
-  }, [roomCode]);
+  }, [roomCode, user?.id]);
 
   // --- 2. AUTH & ROOM MANAGEMENT ---
   const login = (name) => {
-    const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+    // PREFER FIREBASE UID
+    let id;
+    if (auth.currentUser) {
+        id = auth.currentUser.uid;
+    } else {
+        // Fallback (Should rarely happen if we wait for authReady)
+        console.warn("Auth not ready, using temp ID");
+        id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+    }
+
     const newUser = { id, name };
     setUser(newUser);
     localStorage.setItem('coup_user', JSON.stringify(newUser));
     return newUser;
   };
 
+  const cleanupInactiveRooms = async () => {
+      // JANITOR: Delete rooms older than 10 mins inactive
+      try {
+          const roomsRef = ref(database, 'rooms');
+          const snap = await get(roomsRef);
+          if (snap.exists()) {
+              const rooms = snap.val();
+              const now = Date.now();
+              const TIMEOUT = 10 * 60 * 1000; // 10 mins
+              
+              const updates = {};
+              let cleanedCount = 0;
+              
+              Object.keys(rooms).forEach(key => {
+                  const room = rooms[key];
+                  const lastActive = room.lastActive || room.createdAt || 0;
+                  if (now - lastActive > TIMEOUT) {
+                      updates[`rooms/${key}`] = null; // Delete
+                      cleanedCount++;
+                  }
+              });
+              
+              if (cleanedCount > 0) {
+                  await update(ref(database), updates);
+                  console.log(`[JANITOR] Cleaned ${cleanedCount} inactive rooms.`);
+              }
+          }
+      } catch (e) {
+          console.error("Janitor failed:", e);
+      }
+  };
+
+  const touchRoom = async (code) => {
+      // Updates lastActive
+      await update(ref(database, `rooms/${code}`), { lastActive: Date.now() });
+  };
+
   const createRoom = async () => {
     if (!user) return;
     setLoading(true);
+    
+    // RUN JANITOR
+    cleanupInactiveRooms();
+
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     const newRoom = {
       code,
@@ -75,13 +164,12 @@ export const GameProvider = ({ children }) => {
           isReady: true
         }
       },
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      lastActive: Date.now()
     };
     await set(ref(database, `rooms/${code}`), newRoom);
     
-    // Auto-remove me on disconnect
-    const myPlayerRef = ref(database, `rooms/${code}/players/${user.id}`);
-    onDisconnect(myPlayerRef).remove();
+    // No more onDisconnect removal!
 
     setRoomCode(code);
     localStorage.setItem('coup_room', code);
@@ -105,11 +193,11 @@ export const GameProvider = ({ children }) => {
       updates[`rooms/${code}/players/${user.id}`] = {
         id: user.id, name: user.name, coins: 0, cards: [], isAlive: true, isReady: true
       };
+      updates[`rooms/${code}/lastActive`] = Date.now();
+      
       await update(ref(database), updates);
       
-      // Auto-remove me on disconnect
-      const myPlayerRef = ref(database, `rooms/${code}/players/${user.id}`);
-      onDisconnect(myPlayerRef).remove();
+      // No onDisconnect logic here.
 
       setRoomCode(code);
       localStorage.setItem('coup_room', code);
@@ -227,6 +315,7 @@ export const GameProvider = ({ children }) => {
     updates[`rooms/${roomCode}/turn`] = playerIds[0];
     updates[`rooms/${roomCode}/timer`] = 30; // Initial timer
     updates[`rooms/${roomCode}/logs`] = [{ text: "JOGO INICIADO! Boa sorte.", timestamp: Date.now() }];
+    updates[`rooms/${roomCode}/lastActive`] = Date.now();
     
     await update(ref(database), updates);
   };
@@ -335,7 +424,8 @@ export const GameProvider = ({ children }) => {
           updates[`rooms/${roomCode}/timer`] = 5; // 5s to challenge
           updates[`rooms/${roomCode}/logs`] = [...gameState.logs, {text: `${myPlayer.name} quer usar ${getActionName(type)}...`, timestamp: Date.now()}].slice(-50);
       }
-
+      
+      updates[`rooms/${roomCode}/lastActive`] = Date.now();
       await update(ref(database), updates);
   };
 

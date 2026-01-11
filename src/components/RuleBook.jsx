@@ -129,6 +129,19 @@ const RuleBook = ({ isOpen, onClose }) => {
                                     </ul>
                                 </div>
                             </div>
+                            
+                            {/* Inquisitor */}
+                            <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700 flex gap-4">
+                                <div className="w-12 h-12 bg-amber-900/30 rounded-lg flex items-center justify-center shrink-0 border border-amber-500/30 text-amber-500 font-bold text-xl">I</div>
+                                <div>
+                                    <h4 className="text-white font-bold text-lg">Inquisidor</h4>
+                                    <ul className="mt-2 space-y-1 text-sm text-gray-400">
+                                        <li className="flex items-start gap-2"><span className="text-amber-500">►</span> <span><strong className="text-gray-200">Trocar:</strong> Pegue 1 carta do baralho, olhe, e troque por uma das suas (ou devolva).</span></li>
+                                        <li className="flex items-start gap-2"><span className="text-amber-500">►</span> <span><strong className="text-gray-200">Investigar:</strong> Olhe uma carta de um oponente. Force-o a trocar ou deixe-o ficar.</span></li>
+                                        <li className="flex items-start gap-2"><span className="text-blue-400">🛡️</span> <span>Bloqueia <strong className="text-gray-200">Extorsão</strong> (Capitão).</span></li>
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                     </section>
 

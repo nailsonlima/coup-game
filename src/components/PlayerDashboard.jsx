@@ -265,9 +265,7 @@ const PlayerDashboard = () => {
         </div>
         {/* Hint */}
         {myCards.some(c => !c.faceUp) && (
-            <div className="absolute bottom-24 right-4 text-[10px] text-gray-600 animate-pulse pointer-events-none">
-                SEGURE P/ ESPIAR
-            </div>
+            <div className="absolute bottom-24 right-4 text-[10px] text-gray-600 animate-pulse pointer-events-none"></div>
         )}
       </div>
 
