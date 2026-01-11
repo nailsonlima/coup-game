@@ -421,7 +421,7 @@ export const GameProvider = ({ children }) => {
           // INTERRUPTIBLE ACTIONS (Foreign Aid, Tax, Steal, Assassinate, Exchange)
           updates[`rooms/${roomCode}/currentAction`] = newAction;
           updates[`rooms/${roomCode}/turnPhase`] = 'PHASE_CHALLENGE_WINDOW';
-          updates[`rooms/${roomCode}/timer`] = 5; // 5s to challenge
+          updates[`rooms/${roomCode}/timer`] = 7; // 7s to challenge (Increased from 5s)
           updates[`rooms/${roomCode}/logs`] = [...gameState.logs, {text: `${myPlayer.name} quer usar ${getActionName(type)}...`, timestamp: Date.now()}].slice(-50);
       }
       
@@ -433,6 +433,9 @@ export const GameProvider = ({ children }) => {
 
   const blockAction = async (blockCard) => {
       // Moves to PHASE_BLOCK_RESPONSE
+      if (!user || !gameState) return;
+      if (!gameState.players[user.id].isAlive) return;
+
       const updates = {};
       updates[`rooms/${roomCode}/currentAction/status`] = 'BLOCKED';
       updates[`rooms/${roomCode}/currentAction/blockerId`] = user.id;
@@ -447,6 +450,7 @@ export const GameProvider = ({ children }) => {
   const acceptBlock = async () => {
       // Actor accepts the block. Action is cancelled. Turn ends.
       if (!user || !gameState) return;
+      if (!gameState.players[user.id].isAlive) return;
       
       const updates = {};
       const nextP = getNextPlayer(gameState.turn);
@@ -607,6 +611,9 @@ export const GameProvider = ({ children }) => {
   };
 
   const acceptAction = async () => {
+      if (!user || !gameState) return;
+      if (!gameState.players[user.id].isAlive) return;
+
       // Target accepts fate (e.g. Steal or Assassination)
       // Execute the pending action immediately
       await resolveActionSuccess(gameState.currentAction);
@@ -615,6 +622,9 @@ export const GameProvider = ({ children }) => {
   // --- 6. CHALLENGE & RESOLUTION ENGINE ---
 
   const contestAction = async () => {
+      if (!user || !gameState) return;
+      if (!gameState.players[user.id].isAlive) return;
+
       // Moves to PHASE_RESOLVE_CHALLENGE (Auto-Run)
       const updates = {};
       updates[`rooms/${roomCode}/turnPhase`] = 'PHASE_RESOLVE_CHALLENGE';

@@ -11,8 +11,9 @@ const ChallengeTimer = () => {
     // Default max time is 15s (set in GameContext).
     
     if (!currentAction) return null;
-
-    if (!currentAction) return null;
+    
+    // We will control button visibility below, but allow dead players to see the textual info.
+    const isAlive = gameState.players[user.id].isAlive;
 
     const isMyAction = currentAction.playerId === user.id;
     const isMyTarget = currentAction.targetId === user.id;
@@ -66,7 +67,7 @@ const ChallengeTimer = () => {
                          </div>
                          
                          {/* Controls for TARGET or ANYONE for Foreign Aid */}
-                         {((isMyTarget) || (!isMyAction && currentAction.type === 'FOREIGN_AID')) && (
+                         {isAlive && ((isMyTarget) || (!isMyAction && currentAction.type === 'FOREIGN_AID')) && (
                              <div className="flex gap-2 justify-center mt-2">
                                 {isMyTarget && (
                                 <button 
@@ -109,7 +110,7 @@ const ChallengeTimer = () => {
                          )}
 
                          {/* Controls for OTHERS (Challenge) */}
-                         {!isMyAction && currentAction.type !== 'FOREIGN_AID' && (
+                         {isAlive && !isMyAction && currentAction.type !== 'FOREIGN_AID' && (
                              <button 
                                 onClick={contestAction}
                                 className="w-full bg-yellow-600/20 hover:bg-yellow-600/40 border border-yellow-500 text-yellow-500 font-bold px-4 py-2 rounded-lg flex items-center justify-center gap-2 mt-2"
@@ -135,22 +136,29 @@ const ChallengeTimer = () => {
                         {gameState.players[currentAction.blockerId].name} bloqueou com {currentAction.blockCard}.
                     </p>
                     
+                    
                     {isMyAction ? (
                         <div className="flex gap-2 justify-center">
-                            <button 
-                                onClick={acceptBlock} 
-                                className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-bold"
-                            >
-                                ACEITAR (Passar Vez)
-                            </button>
-                        
-                        <button 
-                            onClick={contestAction}
-                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
-                        >
-                            <ShieldAlert size={16}/>
-                            CONTESTAR BLOQUEIO
-                        </button>
+                            {/* Actions for the Active Player (who was blocked) */}
+                            {/* If I am dead, I shouldn't be here acting really, but let's guard just in case */}
+                             {isAlive && (
+                                <>
+                                <button 
+                                    onClick={acceptBlock} 
+                                    className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-bold"
+                                >
+                                    ACEITAR (Passar Vez)
+                                </button>
+                            
+                                <button 
+                                    onClick={contestAction}
+                                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
+                                >
+                                    <ShieldAlert size={16}/>
+                                    CONTESTAR BLOQUEIO
+                                </button>
+                                </>
+                             )}
                     </div>
                     ) : (
                         <div className="text-sm text-gray-500">Aguardando {gameState.players[currentAction.playerId].name} decidir...</div>
